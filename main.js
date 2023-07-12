@@ -99,7 +99,7 @@ app.get('/search', (req, res) => {
     }
   });
 });
-app.get('/:dishId', (req, res) => {
+app.get('/dishID=:dishId', (req, res) => {
   const dishId = req.params.dishId;
 
   const dishQuery = `
@@ -110,9 +110,7 @@ app.get('/:dishId', (req, res) => {
       D.is_available,
       C.category_name AS Category,
       GROUP_CONCAT(DISTINCT O.origin_name SEPARATOR ', ') AS Origin,
-      GROUP_CONCAT(DISTINCT F.flavor_desc SEPARATOR ', ') AS Flavor,
-      GROUP_CONCAT(DISTINCT I.ingredient_name) AS Ingredient,
-      GROUP_CONCAT(DISTINCT DI.cost_quantity) AS Cost
+      GROUP_CONCAT(DISTINCT F.flavor_desc SEPARATOR ', ') AS Flavor
     FROM
       Dishes AS D
       JOIN Categories AS C ON D.category_id = C.category_id
@@ -120,22 +118,22 @@ app.get('/:dishId', (req, res) => {
       JOIN Origins AS O ON DO.origin_id = O.origin_id
       JOIN Dishes_Flavors AS DF ON D.dish_id = DF.dish_id
       JOIN Flavors AS F ON DF.flavor_id = F.flavor_id
-      JOIN Dishes_Ingredients AS DI ON D.dish_id = DI.dish_id
-      JOIN Ingredients AS I ON DI.ingredient_id = I.ingredient_id
     WHERE
       D.dish_id = ?
     GROUP BY
-      D.dish_id;
+      D.dish_id
   `;
 
-  const unitQuery = `
-    SELECT unit
-    FROM (
-      SELECT ingredient_id
-      FROM dishes_ingredients
-      WHERE dish_id = ?
-    ) AS I
-    JOIN Ingredients USING(ingredient_id);
+  const ingredientsQuery = `
+    SELECT
+      I.ingredient_name,
+      DI.cost_quantity,
+      I.unit
+    FROM
+      Dishes_Ingredients AS DI
+      JOIN Ingredients AS I ON DI.ingredient_id = I.ingredient_id
+    WHERE
+      DI.dish_id = ?
   `;
 
   dbconnection.query(dishQuery, [dishId], (err, dishes) => {
@@ -143,19 +141,104 @@ app.get('/:dishId', (req, res) => {
       console.error('Error executing dish query: ' + err.message);
       res.render('error');
     } else {
-      dbconnection.query(unitQuery, [dishId], (err, units) => {
+      dbconnection.query(ingredientsQuery, [dishId], (err, ingredients) => {
         if (err) {
-          console.error('Error executing unit query: ' + err.message);
+          console.error('Error executing ingredients query: ' + err.message);
           res.render('error');
         } else {
-          res.render('dish', { dishes: dishes, units: units });
+          res.render('dish', { dishes: dishes, ingredients: ingredients });
         }
       });
     }
   });
 });
-  
+
+app.get('/storage', (req, res) =>{
+  dbconnection.query('SELECT * FROM ingredients', (err, result) =>{
+    if (err) app.render('error');
+    else
+    {
+      res.render('storage', {ingredient : result});
+    }
+  })
+})
 // Chạy server
+app.get('/orderID=:dishID', (req, res) => {
+  const dishID = req.params.dishID;
+
+  // Thực hiện câu truy vấn để lấy lượng nguyên liệu món ăn
+  const query = `
+    SELECT DI.ingredient_id, DI.cost_quantity, I.quantity
+    FROM Dishes_Ingredients AS DI
+    JOIN Ingredients AS I ON DI.ingredient_id = I.ingredient_id
+    WHERE DI.dish_id = ?;
+  `;
+
+  dbconnection.query(query, [dishID], (err, results) => {
+    if (err) {
+      console.error('Error executing query: ' + err.message);
+      res.render('error');
+    } else {
+      // Kiểm tra lượng nguyên liệu của món ăn
+      let isEnoughIngredients = true;
+      let ingredientsToUpdate = {};
+
+      for (const row of results) {
+        const ingredientID = row.ingredient_id;
+        const costQuantity = row.cost_quantity;
+        const currentQuantity = row.quantity;
+
+        if (currentQuantity < costQuantity) {
+          isEnoughIngredients = false;
+          break;
+        } else {
+          // Lưu thông tin để cập nhật sau này
+          ingredientsToUpdate[ingredientID] = currentQuantity - costQuantity;
+        }
+      }
+
+      if (isEnoughIngredients) {
+        // Update lượng nguyên liệu và cập nhật is_available của món ăn
+        const updateQueries = [];
+
+        for (const ingredientID in ingredientsToUpdate) {
+          const newQuantity = ingredientsToUpdate[ingredientID];
+          const updateQuery = `
+            UPDATE Ingredients
+            SET quantity = ?
+            WHERE ingredient_id = ?;
+          `;
+          updateQueries.push(dbconnection.query(updateQuery, [newQuantity, ingredientID]));
+        }
+
+        updateQueries.push(dbconnection.query('UPDATE Dishes SET is_available = false WHERE dish_id = ?', [dishID]));
+
+        Promise.all(updateQueries)
+          .then(() => {
+            res.render('success', { message: 'Đã order thành công!' });
+          })
+          .catch((error) => {
+            console.error('Error updating ingredients: ' + error.message);
+            res.render('error');
+          });
+      } else {
+        // Không đủ nguyên liệu, chỉ cập nhật is_available của món ăn
+        dbconnection.query('UPDATE Dishes SET is_available = false WHERE dish_id = ?', [dishID], (err) => {
+          if (err) {
+            console.error('Error updating dish availability: ' + err.message);
+            res.render('error');
+          } else {
+            res.render('success', { message: 'Đã order thành công!' });
+          }
+        });
+      }
+    }
+  });
+});
+
+
+
+
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
 });

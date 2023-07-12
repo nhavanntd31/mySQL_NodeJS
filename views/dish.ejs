@@ -41,25 +41,19 @@
 
   <div class="hero_area">
     <!-- header section strats -->
+    <!-- header section strats -->
     <header class="header_section">
       <div class="container-fluid">
         <nav class="navbar navbar-expand-lg custom_nav-container">
-          <a class="navbar-brand" href="index.html">
+          <a class="navbar-brand" href="/">
             <span>
               Delfood
             </span>
           </a>
           <div class="" id="">
             <div class="User_option">
-              <a href="">
-                <i class="fa fa-user" aria-hidden="true"></i>
-                <span>Login</span>
-              </a>
               <form class="form-inline ">
                 <input type="search" placeholder="Search" />
-                <button class="btn  nav_search-btn" type="submit">
-                  <i class="fa fa-search" aria-hidden="true"></i>
-                </button>
               </form>
             </div>
             <div class="custom_menu-btn">
@@ -69,10 +63,8 @@
             </div>
             <div id="myNav" class="overlay">
               <div class="overlay-content">
-                <a href="index.html">Home</a>
-                <a href="about.html">About</a>
-                <a href="blog.html">Blog</a>
-                <a href="testimonial.html">Testimonial</a>
+                <a href="/">Home</a>
+                <a href="/storage">Storage</a>
               </div>
             </div>
           </div>
@@ -92,38 +84,41 @@
           </h2>
         </div>
         <div class="row">
-          <div class="col-md-6">
-            <div class="box">
-              <div class="img-box">
-                <img src="images/<%= dishes[0].dish_id %>.png" class="box-img" alt="">
-              </div>
-              <div class="detail-box">
-                <h4>
-                  <%= dishes[0].dish_name %>
-                </h4>
-                <p>
-                  Always serve while dishes still hot
-                </p>
+          <% if (Array.isArray(dishes) && dishes.length > 0) { %>
+            <div class="col-md-6">
+              <div class="box">
+                <div class="img-box">
+                  <img src="images/<%= dishes[0].dish_id %>.png" class="box-img" alt="">
+                </div>
+                <div class="detail-box">
+                  <h4><%= dishes[0].dish_name %></h4>
+                  <p>Always serve while dishes still hot</p>
+                </div>
               </div>
             </div>
-          </div>
-          <div class="col-md-6">
-            <div class="box">
-              <div class="detail-box">
-                <h4>
-                  Cost: <%= dishes[0].price %>
-                </h4>
-                <p>
-                  <% dishes[0].Ingredient.split(',').forEach(function(ingredient, index) { %>
-                    <%= ingredient %>: <%= dishes[0].Cost.split(',')[index] %> <%= units[index].unit %>.<br>
-                  <% }) %>
-                  Category : <%= dishes[0].Category %>. <br>
-                  Origin : <%= dishes[0].Origin %>. <br>
-                  Flavor : <%= dishes[0].Flavor %>.
-                </p>
+            <div class="col-md-6">
+              <div class="box">
+                <div class="detail-box">
+                  <h4>Cost: <%= dishes[0].price %></h4>
+                  <p>
+                    <% ingredients.forEach(function(ingredient, index) { %>
+                      <%= ingredient.ingredient_name %>: <%= ingredient.cost_quantity %> <%= ingredient.unit %>.<br>
+                    <% }) %>
+                    Category: <%= dishes[0].Category %>.<br>
+                    Origin: <%= dishes[0].Origin %>.<br>
+                    Flavor: <%= dishes[0].Flavor %>.<br>
+                    Available: <%= dishes[0].is_available ? 'Yes' : 'No' %>
+                  </p>
+                  <a href="/orderID=<%= dishes[0].dish_id %>">
+                    <i class="fa fa-arrow-right" aria-hidden="true"></i>
+                  </a>
+                </div>
               </div>
             </div>
-          </div>
+          <% } else { %>
+            <p>No dish available.</p>
+          <% } %>
+          
         </div>
         </div>
       </div>
