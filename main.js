@@ -1,9 +1,7 @@
-// main.js
 const express = require('express');
 const mysql = require('mysql');
 const app = express();
 
-// Kết nối với MySQL
 const dbconnection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
@@ -20,15 +18,12 @@ dbconnection.connect((err) => {
   }
 });
 
-// Thiết lập EJS là view engine
 app.use(express.static('public'));
 app.set('view engine', 'ejs');
 app.set("views", "views");
-// Định nghĩa các route
+
 app.get('/', (req, res) => {
-  // Truy vấn dữ liệu từ database
   let query = 'SELECT DISTINCT dish_id, dish_name FROM dishes JOIN dishes_flavors USING(dish_id) JOIN dishes_origins USING(dish_id) ';
-  // console.log(query);
   dbconnection.query(query, (err, result) => {
     if (err) {
       console.error('Error executing origin query: ' + err.message);
@@ -59,6 +54,7 @@ app.get('/', (req, res) => {
     }
   });
 });
+
 app.get('/search', (req, res) => {
   const category = req.query.category;
   const flavor = req.query.flavor;
@@ -68,7 +64,7 @@ app.get('/search', (req, res) => {
   if (flavor !== '0') query += 'flavor_id =' + flavor.toString() + ' AND ';
   if (origin !== '0') query += 'origin_id =' + origin.toString() ;
   query = query.replace(/ AND $/, ''); 
-  console.log(query);
+
   dbconnection.query(query, (err, result) => {
     if (err) {
       console.error('Error executing origin query: ' + err.message);
@@ -99,6 +95,7 @@ app.get('/search', (req, res) => {
     }
   });
 });
+
 app.get('/dishID=:dishId', (req, res) => {
   const dishId = req.params.dishId;
 
@@ -160,13 +157,12 @@ app.get('/storage', (req, res) =>{
     {
       res.render('storage', {ingredient : result});
     }
-  })
-})
-// Chạy server
+  });
+});
+
 app.get('/orderID=:dishID', (req, res) => {
   const dishID = req.params.dishID;
 
-  // Thực hiện câu truy vấn để lấy lượng nguyên liệu món ăn
   const query = `
     SELECT DI.ingredient_id, DI.cost_quantity, I.quantity
     FROM Dishes_Ingredients AS DI
@@ -179,7 +175,6 @@ app.get('/orderID=:dishID', (req, res) => {
       console.error('Error executing query: ' + err.message);
       res.render('error');
     } else {
-      // Kiểm tra lượng nguyên liệu của món ăn
       let isEnoughIngredients = true;
       let ingredientsToUpdate = {};
 
@@ -192,13 +187,11 @@ app.get('/orderID=:dishID', (req, res) => {
           isEnoughIngredients = false;
           break;
         } else {
-          // Lưu thông tin để cập nhật sau này
           ingredientsToUpdate[ingredientID] = currentQuantity - costQuantity;
         }
       }
 
       if (isEnoughIngredients) {
-        // Update lượng nguyên liệu và cập nhật is_available của món ăn
         const updateQueries = [];
 
         for (const ingredientID in ingredientsToUpdate) {
@@ -215,29 +208,25 @@ app.get('/orderID=:dishID', (req, res) => {
 
         Promise.all(updateQueries)
           .then(() => {
-            res.render('success', { message: 'Đã order thành công!' });
+            res.render('success', { message: 'Success' });
           })
           .catch((error) => {
             console.error('Error updating ingredients: ' + error.message);
             res.render('error');
           });
       } else {
-        // Không đủ nguyên liệu, chỉ cập nhật is_available của món ăn
         dbconnection.query('UPDATE Dishes SET is_available = false WHERE dish_id = ?', [dishID], (err) => {
           if (err) {
             console.error('Error updating dish availability: ' + err.message);
             res.render('error');
           } else {
-            res.render('success', { message: 'Đã order thành công!' });
+            res.render('success');
           }
         });
       }
     }
   });
 });
-
-
-
 
 app.listen(3000, () => {
   console.log('Server is running on port 3000');
